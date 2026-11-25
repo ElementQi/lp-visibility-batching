@@ -1,8 +1,10 @@
-# Batched visibility for linear programming
+# Faster visibility queries for strongly polynomial linear programming
 
 **[Mengqi Li](https://elementqi.github.io/) · 25 November 2026**
 
-A single linear program can label every required coordinate of a calibrated price query in OpenAI's *Strongly polynomial linear programming*. The published test solves one feasibility problem per coordinate. The batch program adds one variable per coordinate and permits additive objective error. [Original pricing algorithm](https://github.com/openai/math/blob/3344da59991ed94f9ba711217b29c1d760badfa6/preprints/Strongly-polynomial-linear-programming-November-24-2026/build/lp.tex)
+This project reduces the cost of answering a price query in OpenAI's *Strongly polynomial linear programming*. Given the calibrated basis, the pricing algorithm needs a sign at each visible coordinate. The published test solves a feasibility problem per coordinate. Here a C++ filter certifies signs directly from the basis, and one batched LP covers any remaining coordinates. If the filter resolves every sign, the query takes no LP solves. [Original pricing algorithm](https://github.com/openai/math/blob/3344da59991ed94f9ba711217b29c1d760badfa6/preprints/Strongly-polynomial-linear-programming-November-24-2026/build/lp.tex)
+
+The repository contains the filter, Lean proofs of the visibility bounds, and reproducible comparisons against both coordinatewise tests and the full batch at one price.
 
 ## The test
 
