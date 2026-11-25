@@ -37,10 +37,14 @@ Run the exact Python checks with `python3 -m unittest discover -s bench`.
 A spanning forest of the original basis graph gives an exact canonical form under positive coordinate scaling. The general compressor then depends on the number of non-tree edges. With at most two such edges, four-bit entries suffice to preserve every maximal-minor sign. An LP on this short matrix and one original cofactor recover an exact target circuit. [Proof and finite table](docs/projective.md)
 
 ```python
-from visibility.projective import forest_form, small_chord_rows
+from visibility.projective import forest_form, small_chord_rows, lift_elementary_target
 
-form = forest_form(source)
-rows = small_chord_rows(form)  # at most two non-tree edges
+matrix = [[1, 0, 2, 4, 3], [0, 1, 1, 7, 11]]
+form = forest_form(PhysicalSource(matrix))
+rows = small_chord_rows(form)
+# The first surrogate row is an elementary nonnegative witness at target 0.
+original = lift_elementary_target(matrix, rows, rows[0], target=0)
+assert original == tuple(matrix[0])
 ```
 
 ## One batch LP for all visible coordinates
