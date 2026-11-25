@@ -32,6 +32,17 @@ The C++ graph screen takes a rounded graph block and its entry error. It verifie
 
 Run the exact Python checks with `python3 -m unittest discover -s bench`.
 
+## Remove arbitrary positive coordinate scales
+
+A spanning forest of the original basis graph gives an exact canonical form under positive coordinate scaling. The general compressor then depends on the number of non-tree edges. With at most two such edges, four-bit entries suffice to preserve every maximal-minor sign. An LP on this short matrix and one original cofactor recover an exact target circuit. [Proof and finite table](docs/projective.md)
+
+```python
+from visibility.projective import forest_form, small_chord_rows
+
+form = forest_form(source)
+rows = small_chord_rows(form)  # at most two non-tree edges
+```
+
 ## One batch LP for all visible coordinates
 
 Use the manuscript's paired box for a returned basis. Write $u_j=y_{j+}+\epsilon$ for its nonnegative shifted positive block. Put $\tau=1/(32N)$. Maximize $\sum_j t_j$ subject to the existing box constraints and $0\le t_j\le\min(u_j,\tau)$. Return plus at coordinate $i$ when $u_i\ge\tau/2$.
