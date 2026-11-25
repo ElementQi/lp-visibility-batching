@@ -1,6 +1,6 @@
 name = "lp_visibility_batching"
 version = "0.1.0"
-defaultTargets = ["BatchedVisibility"]
+defaultTargets = ["BatchedVisibility", "GraphCalibration"]
 
 [[require]]
 name = "mathlib"
@@ -9,3 +9,6 @@ rev = "v4.33.0"
 
 [[lean_lib]]
 name = "BatchedVisibility"
+
+[[lean_lib]]
+name = "GraphCalibration"

@@ -2,11 +2,37 @@
 
 **[Mengqi Li](https://elementqi.github.io/) · 25 November 2026**
 
-This project reduces the cost of answering a price query in OpenAI's *Strongly polynomial linear programming*. Given the calibrated basis, the pricing algorithm needs a sign at each visible coordinate. The published test solves a feasibility problem per coordinate. Here a C++ filter certifies signs directly from the basis, and one batched LP covers any remaining coordinates. If the filter resolves every sign, the query takes no LP solves. [Original pricing algorithm](https://github.com/openai/math/blob/3344da59991ed94f9ba711217b29c1d760badfa6/preprints/Strongly-polynomial-linear-programming-November-24-2026/build/lp.tex)
+This repository develops complementary graph charts for the visibility queries in OpenAI’s *Strongly polynomial linear programming*. For a general LP price query on $N$ coordinates, a bounded graph chart needs $\Theta(\log(N+1))$ bits of absolute entry precision to distinguish all one-third-visible heads. The ordered triangular array can require $\Theta(N)$ bits, even with every represented entry sign supplied. Both statements have matching upper and lower bounds for their respective input representations. [Proof and separating families](docs/calibration.md)
 
-The repository contains the filter, Lean proofs of the visibility bounds, and reproducible comparisons against both coordinatewise tests and the full batch at one price.
+The chart works with the original online minor compressor. Signed price comparisons form difference constraints on $2N$ vertices. Combining their cycle bound with the new chart reduces the compressor’s affine-type exponent from the published $\Theta(N^3)$ to $O(\log N)$. Holding the published learner and its other budgets fixed, this saves a factor $\Theta(N^3/\log N)$ in the number of scheduled price queries per completed run. Balanced calibration also lowers the full-run minor-request budget against a linear-precision triangular baseline. [Complexity accounting](docs/calibration.md#an-explicit-whole-learner-probe-improvement) · [Upstream algorithm](https://github.com/openai/math/blob/3344da59991ed94f9ba711217b29c1d760badfa6/preprints/Strongly-polynomial-linear-programming-November-24-2026/build/lp.tex)
 
-## The test
+## Use a graph chart
+
+For an explicit rational row space, build a source once. The chart represents its priced row space in pivot/free order as $[I\; M]$ and its polar as $[-M^\top\; I]$. The same source supplies restricted problems and either side of the alternative.
+
+```python
+from visibility.physical import PhysicalSource
+from visibility.axis import AxisTable
+
+source = PhysicalSource([[1, 0, -1, 2], [0, 1, 1, 1]])
+chart = source.balanced([0, 0, 0, 0])
+physical = source.realize(chart)
+child = source.chart([0, 0, 0], pinned=[2], polar=True)
+axes = AxisTable([0, 0, 0, 0], source.rank, source.view())
+far = axes.line(2).chart(10**100)
+```
+
+Balanced row elimination uses $O(rN(1+\log r))$ minor requests at logarithmic precision. A leaf-only version uses $O(rN)$ at $O(\log(N+1)(1+\log r))$ bits. When rank is proportional to dimension, a family with opposite mandatory signs attains that precision order for the leaf transcript. [Separating family](docs/leaf-precision.md) An exact rational diagonal realizes the signed intervals on the original input and transports positive-margin solutions back. [Balanced construction](docs/balanced-calibration.md) · [Rational realization](docs/rational-lift.md)
+
+Two independent refinements apply to the general learner. A sharper bound on unqueried proxies saves a factor of the dissociation cap in the scheduled query count. A four-slot parameter choice reduces the probe bound from $O(N^{60}\log(NR+1))$ to $O(N^{48}\log(NR+1))$ at the same demand range $R$. [Extension proof](docs/extension-height.md) · [Learner proof and constants](docs/price-tree.md)
+
+The source evaluates actual rational minors. The general compressed interface accepts an external epoch’s exact signs and rational log proxies. An axis table needs zero new minor requests for arbitrarily distant changes to any one price. [Compressed interface](visibility/calibration.py) · [Axis theorem](docs/price-lines.md)
+
+The C++ graph screen takes a rounded graph block and its entry error. It verifies signs with integer row intervals, then a compact batch LP can handle unresolved coordinates. Against the same graph batch in HiGHS, it won 15 of 20 held-out LP–price pairs (median ratio 2.24×) and 24 of 24 near-optimum Heart SVM–price pairs (3.91×), and 23 of 24 from four other classification datasets (2.35×). Timings start after graph construction. [Implementation](include/visibility/graph.hpp) · [Benchmark, including all regressions](docs/graph-benchmark.md)
+
+Run the exact Python checks with `python3 -m unittest discover -s bench`.
+
+## One batch LP for all visible coordinates
 
 Use the manuscript's paired box for a returned basis. Write $u_j=y_{j+}+\epsilon$ for its nonnegative shifted positive block. Put $\tau=1/(32N)$. Maximize $\sum_j t_j$ subject to the existing box constraints and $0\le t_j\le\min(u_j,\tau)$. Return plus at coordinate $i$ when $u_i\ge\tau/2$.
 
@@ -45,7 +71,7 @@ lake exe cache get
 lake build
 ```
 
-The project pins Lean 4.33.0 and the mathlib revision in the Lake manifest. The main theorem takes explicit true and approximate matrices, the paper's precision constants, a feasible answer and its objective-gap guarantee. The file reports the axioms used by the main results. [Theorem and proof](BatchedVisibility.lean)
+The project pins Lean 4.33.0 and the mathlib revision in the Lake manifest. The main theorem takes explicit true and approximate matrices, the paper's precision constants, a feasible answer and its objective-gap guarantee. The graph proofs also check signed potentials, cycle-weight transfer, pivot growth, Schur product error and the perturbed-identity solve. Both files report their axioms. [Visibility proofs](BatchedVisibility.lean) · [Graph lemmas](GraphCalibration.lean)
 
 ## Reproduce the benchmark
 
