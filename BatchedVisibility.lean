@@ -329,6 +329,37 @@ theorem paper_box_decoder {m : ℕ} (i : Fin n) (hn : 0 < n) (hm : m ≤ 2*n)
   · exact (basis_error hc' (by positivity) (fun k l => (close k l).1) j).trans metaBound
   · exact (basis_error hc' (by positivity) (fun k l => (close k l).2) j).trans metaBound
 
+/-- One signed interval-row update bounds every normalized opposite witness. -/
+theorem interval_row_bound (i : Fin n) {a c w U : Point n}
+    (lower : ∀ j, a j ≤ c j) (orth : ∑ j, c j * w j = 0)
+    (hw : ∀ j, 0 ≤ w j) (upper : ∀ j, w j ≤ U j) :
+    a i * w i ≤ ∑ j, max (-a j) 0 * U j := by
+  let loss : Point n := fun j => max (-a j) 0 * U j
+  have hsum : ∑ j, a j * w j ≤ 0 := orth ▸
+    Finset.sum_le_sum (fun j _ => mul_le_mul_of_nonneg_right (lower j) (hw j))
+  have term (j : Fin n) : 0 ≤ a j * w j + loss j := by
+    have h₁ := mul_le_mul_of_nonneg_right (le_max_left (-a j) 0) (hw j)
+    have h₂ := mul_le_mul_of_nonneg_left (upper j) (le_max_right (-a j) 0)
+    dsimp [loss]
+    linarith
+  have one := Finset.single_le_sum (f := fun j => a j * w j + loss j)
+    (fun j _ => term j) (Finset.mem_univ i)
+  rw [Finset.sum_add_distrib] at one
+  have hi : 0 ≤ loss i := mul_nonneg (le_max_right _ _) ((hw i).trans (upper i))
+  change a i * w i ≤ ∑ j, loss j
+  linarith
+
+/-- Projecting the reward onto m unresolved slots keeps the original cap
+and the original tolerance, even when mτ is smaller than 1/32. -/
+theorem residual_fraction {K : Set (Point n)} {τ : ℝ} {u t v : Point n} (i : Fin n)
+    (conv : Convex ℝ K) (ht : Feasible K τ u t) (opt : Within K τ t (τ/32))
+    (hv : v ∈ K) (hv0 : ∀ j, 0 ≤ v j) (head : 1/4 ≤ v i)
+    (small : τ ≤ 1) (budget : (n:ℝ)*τ ≤ 1/32) : 6*τ/7 ≤ t i := by
+  have h := cap_deficit i conv ht opt hv hv0 head small
+  have hd := sub_nonneg.mpr (ht.2 i).2.1
+  have hb := mul_le_mul_of_nonneg_left budget hd
+  nlinarith
+
 end P1.BatchedVisibility
 
 #print axioms P1.BatchedVisibility.price_labels
@@ -339,3 +370,6 @@ end P1.BatchedVisibility
 #print axioms P1.BatchedVisibility.robust_fraction
 #print axioms P1.BatchedVisibility.manuscript_precision
 #print axioms P1.BatchedVisibility.paper_box_decoder
+
+#print axioms P1.BatchedVisibility.interval_row_bound
+#print axioms P1.BatchedVisibility.residual_fraction

@@ -1,6 +1,6 @@
 # Batched visibility for linear programming
 
-**[Mengqi Li](https://elementqi.github.io/) · v0.1.0 · 25 November 2026**
+**[Mengqi Li](https://elementqi.github.io/) · 25 November 2026**
 
 A single linear program can label every required coordinate of a calibrated price query in OpenAI's *Strongly polynomial linear programming*. The published test solves one feasibility problem per coordinate. The batch program adds one variable per coordinate and permits additive objective error. [Original pricing algorithm](https://github.com/openai/math/blob/3344da59991ed94f9ba711217b29c1d760badfa6/preprints/Strongly-polynomial-linear-programming-November-24-2026/build/lp.tex)
 
@@ -13,6 +13,26 @@ Suppose a feasible shifted point $v$ has $v_i\ge 1/4$. Given any feasible pair $
 $$ (\tau-t_i)(1/4-N\tau)\le g. $$
 
 Every exact maximizer saturates all witnessed heads. At $g\le\tau/32$, each such cap variable still reaches $6\tau/7$. For an opposite witness $w$ with $w_i\ge1/3$, orthogonality to the true positive block and the calibrated entrywise error put $u_i$ strictly below $\tau/2$. Both implications hold for the same LP answer regardless of degeneracy. Signs at invisible heads can differ from the coordinatewise baseline.
+
+## Screen before building the LP
+
+The C++17 filter accepts a calibrated basis with columns ordered $[+\mid-]$ and a uniform absolute error bound per entry. It returns one of three labels per coordinate. If every label is resolved, the caller can skip LP construction. Otherwise keep the full original box and add cap variables only for unresolved coordinates, with the original $\tau$ and gap tolerance. The benchmark implements this path end to end. [Header](include/visibility/screen.hpp) · [Native caller](bench/paired.cpp)
+
+```cpp
+#include "visibility/screen.hpp"
+
+auto labels = visibility::screen(paired_basis, entry_error);
+```
+
+For a true row $c$ from one block, any normalized nonnegative witness $w$ from the opposite space satisfies $c^\top w=0$. Start with $U_j=1$. If $a_j\le c_j$ and $0\le w_j\le U_j$, then every $a_i>0$ gives
+
+$$
+w_i\le \frac{\sum_j \max(-a_j,0)U_j}{a_i}.
+$$
+
+The filter rounds this upper bound **up**. Once $U_i<1/3$, the opposite side cannot be visible there, so the current block's sign is valid. Equality stays unresolved by that bound. Both row signs and row differences can tighten several coordinates at once. When at most a quarter of the heads remain, elimination proposes additional row combinations. The filter quantizes their weights and recomputes their intervals in integer arithmetic. Pass counts are fixed, and the optional elimination costs $O(m^2N+m^3)$ arithmetic operations for an $m$-row basis.
+
+Supply an error bound that includes conversion of the basis to binary64. The filter expands entries outward on a dyadic grid. Finite entries outside its supported magnitude of four, or an error bound above one, yield all unresolved. On the residual batch the positive-head proof uses $k\tau\le1/32$ for $k$ unresolved coordinates. The negative-head bound still uses the original paired box. Lean checks the row inequality and the residual cap bound in `interval_row_bound` and `residual_fraction`. The native tests exercise rounding and strict thresholds.
 
 ## Check the proof
 
@@ -45,6 +65,25 @@ g++ -O2 -std=c++17 bench/paired.cpp -L"$LP_DIR" -Wl,-rpath,"$LP_DIR" -llpsolve55
 /tmp/lp-visibility-bench > /tmp/lp-visibility-timings.csv
 /tmp/lp-visibility-bench --matrices > /tmp/lp-visibility-matrices
 python3 bench/verify.py /tmp/lp-visibility-matrices /tmp/lp-visibility-timings.csv
+```
+
+## Screened versus full batch
+
+Both paths below receive the same precomputed basis. Timings include screening, model assembly, solving and decoding. Each cell shows the median full-batch time divided by the median screened time at $N=64$ on an Intel Xeon Gold 6240C. The second gauge applies a dense signed row transformation to the same subspaces. [All 360 observations](bench/screen_reference.csv)
+
+| Matrix family | Shared-offset gauge | Varied gauge |
+|---|---:|---:|
+| Mixed signs | 0.96× | 0.97× |
+| Split sign blocks | 22.85× | 4.18× |
+| Chain | 16.67× | 3.52× |
+
+At this dimension all split and chain runs resolved all 64 labels before building the LP. The mixed runs resolved zero and paid the additional screening cost. The exact auditor checks both gauges against coordinate optima on the original subspaces. These measurements cover the visibility kernel at one price.
+
+```sh
+/tmp/lp-visibility-bench --screen > /tmp/lp-screen.csv
+python3 bench/verify_screen.py /tmp/lp-visibility-matrices /tmp/lp-screen.csv
+g++ -O2 -std=c++17 bench/screen_test.cpp -o /tmp/lp-screen-test
+/tmp/lp-screen-test
 ```
 
 ## Related work and attribution
